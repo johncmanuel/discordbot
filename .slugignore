@@ -1,0 +1,5 @@
+# Used for removing files after pushing code to Heroku
+
+# https://devcenter.heroku.com/articles/slug-compiler#ignoring-files-with-slugignore
+
+/tests
