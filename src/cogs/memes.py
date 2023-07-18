@@ -1,11 +1,13 @@
 import io
 from datetime import datetime
+from typing import List, Union
 
 import discord
 from discord.ext import commands
 
 from config import TIMEZONE
 from log import Logger
+from src.bot import CustomBot
 
 from ..utils.imageUtils import ImageText
 
@@ -15,6 +17,7 @@ class Memes(commands.Cog):
 
     # Accessing the coordinates requires the name of the command being
     # invoked
+    # TODO: Instead of hardcoding coords, add them to the database
     coords = {
         "small": [(90, 190), (361, 270)],
         "aye": [(20, 80), (20, 320), (20, 553)],
@@ -24,7 +27,7 @@ class Memes(commands.Cog):
         self.bot = bot
         self.font_name = "./src/fonts/Anton-Regular.ttf"
 
-    def get_binary_img(self, img: ImageText, user: str, guild: str):
+    def get_binary_img(self, img: ImageText, user: str, guild: str) -> discord.File:
         """ 
         Turns an image into a bytes object and packages it into a 
         Discord File
@@ -36,7 +39,7 @@ class Memes(commands.Cog):
             return discord.File(fp=binary_img, filename=f'{curr_time}_tyler1meme_{user}_{guild}.png')
 
     @staticmethod
-    def get_captions(message: str, delim: str = ';') -> list:
+    def get_captions(message: str, delim: str = ';') -> List[str]:
         """ 
         Splits the message into a list each containing a 
         caption for the meme 
@@ -45,10 +48,11 @@ class Memes(commands.Cog):
         captions = [caption.strip() for caption in user_input if caption != '']
         return captions
 
-    async def write_text_to_img(self, ctx: commands.Context,
-                                img_path: str, captions: str,
-                                box_width: int, font_color: str = 'black',
-                                font_size: int = 20, place: str = 'center'):
+    async def write_text_to_img(
+            self, ctx: commands.Context,
+            img_path: str, captions: str,
+            box_width: int, font_color: str = 'black',
+            font_size: int = 20, place: str = 'center') -> Union[discord.File, None]:
         """ 
         Writes text at a specific coordinate in the meme 
         template image and returns it as a bytes object packed
@@ -77,22 +81,30 @@ class Memes(commands.Cog):
             await Logger.CTX_ERROR(ctx, f"There needs to be at least {len(coords)} captions.")
             return None
 
-    async def send_meme(self, ctx: commands.Context, meme: discord.File):
+    async def send_meme(self, ctx: commands.Context, meme: discord.File) -> None:
         await ctx.send(file=meme) if meme is not None else None
-        if meme is None:
-            Logger.CTX_ERROR(ctx, meme)
 
     @commands.command(help="Creates a meme based on the short Tyler1 meme.")
     async def small(self, ctx: commands.Context, *, arg) -> None:
-        meme = await self.write_text_to_img(ctx, './src/imgs/shortMeme.png', arg, 100, 'yellow')
+        meme = await self.write_text_to_img(
+            ctx,
+            img_path='./src/imgs/shortMeme.png',
+            captions=arg,
+            box_width=100,
+            font_color='yellow')
         await self.send_meme(ctx, meme)
 
-    @commands.command(help="Creates a meme based on Tyler1 being progressively scared. In order to use, separate each caption with a delimiter (by default, ';')")
+    @commands.command(
+        help="Creates a meme based on Tyler1 being progressively scared. In order to use, separate each caption with a delimiter (by default, ';')")
     async def aye(self, ctx: commands.Context, *,
                   arg=commands.parameter(description="Your set of captions. Be sure to separate each one with ';'")) -> None:
-        meme = await self.write_text_to_img(ctx, './src/imgs/ayeMeme.png', arg, 270)
+        meme = await self.write_text_to_img(
+            ctx,
+            img_path='./src/imgs/ayeMeme.png',
+            captions=arg,
+            box_width=270)
         await self.send_meme(ctx, meme)
 
 
-async def setup(bot):
+async def setup(bot: CustomBot):
     await bot.add_cog(Memes(bot))
