@@ -41,16 +41,16 @@ class Application():
         Logger.INFO("Running bot")
 
     def get_bot(self):
+        """ Returns instance of the bot """
         return self.bot
 
-    def _run_bot(self) -> None:
-        self.bot.run_bot()
-
     async def _start_bot(self) -> None:
+        """ Runs the bot from the Application level """
         async with self.bot:
             await self.bot.start_bot()
 
     async def _close_bot(self) -> None:
+        """ Closes the bot """
         await self.bot.close_bot()
 
     async def setup_cogs(self) -> None:
