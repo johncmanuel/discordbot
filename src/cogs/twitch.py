@@ -13,7 +13,6 @@ class Twitch(commands.Cog):
     """ Commands that deal with built-in Twitch notifications. """
 
     def __init__(self, bot: CustomBot) -> None:
-        """ Initialize bot and twitch subsystem """
         self.bot = bot
         self.twitch = TwitchNotification(database=self.bot.database)
         self.check_if_streamers_online.start()
@@ -21,7 +20,7 @@ class Twitch(commands.Cog):
     @commands.command(name='add', aliases=['set', 'insert', 'ins', 'push'],
                       help='Adds a Twitch profile to the database.')
     @commands.has_any_role(ADMIN_ROLE, STAFF_ROLE)
-    async def set_twitch_user(self, ctx: commands.Context, twitch_name: str):
+    async def set_twitch_user(self, ctx: commands.Context, twitch_name: str) -> None:
         """ 
         Add Twitch user specified by the Discord user to the database.
 
@@ -31,70 +30,71 @@ class Twitch(commands.Cog):
         author = ctx.author.mention
         data = self.twitch.get_data_from_db(TWITCH_USERS_PATH)
         twitch_id = self.twitch.get_twitch_id(twitch_name)
-        if twitch_id is not None:
-            if data is None:
+
+        if not twitch_id:
+            await ctx.send(f"{author}: Cannot add `{twitch_name}` to the database. Username is invalid.")
+            return
+
+        if not data:
+            await self.twitch.add_twitch_user(twitch_name, twitch_id, TWITCH_USERS_PATH)
+            await ctx.send(f"{author}: Added `{twitch_name}` to the database!")
+        else:
+            users = [data[key]['user'] for key in data]
+            if twitch_name not in users:
                 await self.twitch.add_twitch_user(twitch_name, twitch_id, TWITCH_USERS_PATH)
                 await ctx.send(f"{author}: Added `{twitch_name}` to the database!")
             else:
-                users = [data[key]['user'] for key in data]
-                if twitch_name not in users:
-                    await self.twitch.add_twitch_user(twitch_name, twitch_id, TWITCH_USERS_PATH)
-                    await ctx.send(f"{author}: Added `{twitch_name}` to the database!")
-                else:
-                    await ctx.send(f"{author}: Cannot add `{twitch_name}` to the database. Username is already in the database.")
-        else:
-            await ctx.send(f"{author}: Cannot add `{twitch_name}` to the database. Username is invalid.")
+                await ctx.send(f"{author}: Cannot add `{twitch_name}` to the database. Username is already in the database.")
 
     @commands.command(name='update', help='Updates a Twitch profile on the database.')
     @commands.has_any_role(ADMIN_ROLE, STAFF_ROLE)
-    async def update_twitch_user(self, ctx: commands.Context, old_twitch_name: str, new_twitch_name: str):
+    async def update_twitch_user(
+            self, ctx: commands.Context, old_twitch_name: str, new_twitch_name: str) -> None:
         """ Updates a Twitch profile on the database """
         author = ctx.author.mention
         data = self.twitch.get_data_from_db(TWITCH_USERS_PATH)
-        if data is not None:
-            for key in data:
-                # If the old twitch name matches the value in the database, update it with
-                # new twitch name
-                user = data[key]['user']
-                if new_twitch_name == user:
-                    await ctx.send(f"{author}: No duplicates allowed!")
-                    break
-                if old_twitch_name == user:
-                    if self.twitch.get_twitch_id(new_twitch_name) is not None:
-                        # Ensure that the path points to the user key
-                        await self.twitch.update_twitch_user(old_twitch_name, new_twitch_name, TWITCH_USERS_PATH+f'/{key}')
-                        await ctx.send(f"{author}: Updated `{old_twitch_name}` to `{new_twitch_name}` on the database!")
-                        break
-                    else:
-                        await ctx.send(f"{author}: {new_twitch_name} is not a valid name.")
-                        break
-                else:
-                    await ctx.send(f"{author}: Could not find {old_twitch_name}!")
-                    break
-        else:
+
+        if not data:
             await ctx.send(f"{author}: Database is empty. Have you tried adding some Twitch users first?")
+
+        for key in data:
+            # If the old twitch name matches the value in the database, update it with
+            # new twitch name
+            user = data[key]['user']
+
+            if new_twitch_name == user:
+                await ctx.send(f"{author}: `{new_twitch_name}` already exists in the database!")
+                return
+
+            elif old_twitch_name == user:
+                if self.twitch.get_twitch_id(new_twitch_name) is not None:
+                    # Ensure that the path points to the user key
+                    await self.twitch.update_twitch_user(old_twitch_name, new_twitch_name, TWITCH_USERS_PATH+f'/{key}')
+                    await ctx.send(f"{author}: Updated `{old_twitch_name}` to `{new_twitch_name}` on the database!")
+                    return
+                else:
+                    await ctx.send(f"{author}: `{new_twitch_name}` is not a valid name.")
+                    return
+
+        await ctx.send(f"{author}: Could not find `{old_twitch_name}`!")
 
     @commands.command(name='delete', aliases=['del', 'remove', 'rm', 'pop'],
                       help='Delete your Twitch profile from the live notifs list.')
     @commands.has_any_role(ADMIN_ROLE, STAFF_ROLE)
-    async def delete_twitch_user(self, ctx: commands.Context, twitch_name: str):
+    async def delete_twitch_user(self, ctx: commands.Context, twitch_name: str) -> None:
         """ Deletes the key of the specified Twitch user """
         author = ctx.author.mention
         data = self.twitch.get_data_from_db(TWITCH_USERS_PATH)
-        has_name = False
         for key in data:
-            # If the name matches any of the users in the database, delete it and set
-            # flag to True
             if twitch_name == data[key]['user']:
-                has_name = True
                 await self.twitch.delete_twitch_user(key=key, twitch_user=twitch_name, path=TWITCH_USERS_PATH)
                 await ctx.send(f"{author}: Deleted `{twitch_name}` from the database!")
-        # If flag is still False, let the user know
-        if not has_name:
-            await ctx.send(f"{author}: Can't find `{twitch_name}`!")
+                return
+        await ctx.send(f"{author}: Can't find `{twitch_name}`!")
 
     @commands.command(name='get', aliases=['get_users', 'getUsers'], help='Gets all Twitch users in the database.')
-    async def get_twitch_users(self, ctx: commands.Context):
+    async def get_twitch_users(self, ctx: commands.Context) -> None:
+        """ Gets all Twitch users listed in the database  """
         users_list = ''
         data = self.twitch.get_data_from_db(TWITCH_USERS_PATH)
         # Iterate through the data and add every value of 'user' to this
@@ -105,7 +105,7 @@ class Twitch(commands.Cog):
         await ctx.send(f"```{users_list}```")
 
     @tasks.loop(minutes=2.5)
-    async def check_if_streamers_online(self):
+    async def check_if_streamers_online(self) -> None:
         try:
             channel = self.bot.get_channel(int(
                 os.getenv('TWITCH_NOTIFICATIONS_CHANNEL_ID')))

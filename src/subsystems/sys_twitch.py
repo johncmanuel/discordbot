@@ -20,7 +20,7 @@ class TwitchNotification():
         self.twitch.authenticate_app([])
         self.database = database
 
-    def _get_twitch_stream(self, user_id: str) -> any:
+    def _get_twitch_stream(self, user_id: str) -> dict:
         """ Get data about any active streams """
         return self.twitch.get_streams(user_id=user_id)
 
@@ -28,13 +28,9 @@ class TwitchNotification():
         """ Get the status of the streamer """
         return stream['data'][0]['type']
 
-    def _get_users(self, users) -> any:
+    def _get_users(self, users) -> dict:
         """ Get data about user(s) on Twitch """
         return self.twitch.get_users(logins=users)
-
-    def _get_id(self, user) -> str:
-        """ Get specifically the ID of a user on Twitch """
-        return str(self._get_users(user)['data'][0]['id'])
 
     async def check_twitch_user_status(self, user_id) -> bool:
         """ Get status of the twitch user's stream """
@@ -44,9 +40,14 @@ class TwitchNotification():
         except IndexError:
             return False
 
-    def get_twitch_id(self, user):
+    def get_twitch_id(self, user) -> str:
         """ Get numerical id of the user """
-        return self._get_id(user)
+        try:
+            twitch_id = str(self._get_users(user)['data'][0]['id'])
+            Logger.DEBUG(twitch_id)
+            return twitch_id
+        except IndexError:
+            return None
 
     async def add_twitch_user(self, twitch_user: str, twitch_id, path: str) -> None:
         """ Adds Twitch user to the database """
